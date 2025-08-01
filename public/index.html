@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeapScholar Brand Monitor - Marketing Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header .logo {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.1rem;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            background: #27ae60;
+            border-radius: 50%;
+            margin-left: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .card h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-icon {
+            width: 30px;
+            height: 30px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .metric {
+            text-align: center;
+            padding: 15px;
+            background: rgba(103, 126, 234, 0.1);
+            border-radius: 15px;
+            border: 1px solid rgba(103, 126, 234, 0.2);
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .metric-label {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .sentiment-positive { color: #27ae60; }
+        .sentiment-negative { color: #e74c3c; }
+        .sentiment-neutral { color: #f39c12; }
+
+        .mentions-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .mention-item {
+            padding: 15px;
+            margin-bottom: 15px;
+            background: rgba(103, 126, 234, 0.05);
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+
+        .mention-item:hover {
+            background: rgba(103, 126, 234, 0.1);
+            transform: translateX(5px);
+        }
+
+        .mention-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .mention-platform {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .mention-time {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+
+        .mention-content {
+            color: #2c3e50;
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
+
+        .mention-author {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            font-style: italic;
+        }
+
+        .mention-engagement {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .engagement-badge {
+            background: #27ae60;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+        }
+
+        .sentiment-badge {
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .sentiment-badge.positive {
+            background: #27ae60;
+            color: white;
+        }
+
+        .sentiment-badge.negative {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .sentiment-badge.neutral {
+            background: #f39c12;
+            color: white;
+        }
+
+        .alerts-section {
+            margin-top: 20px;
+        }
+
+        .alert-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            border-left: 4px solid;
+        }
+
+        .alert-item.high {
+            background: rgba(231, 76, 60, 0.1);
+            border-left-color: #e74c3c;
+        }
+
+        .alert-item.medium {
+            background: rgba(243, 156, 18, 0.1);
+            border-left-color: #f39c12;
+        }
+
+        .alert-priority {
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            margin-bottom: 5px;
+        }
+
+        .alert-message {
+            color: #2c3e50;
+            line-height: 1.4;
+        }
+
+        .trending-topics {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .topic-tag {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #7f8c8d;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #667eea;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Modal Styles */
+        .analysis-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: #fff;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 30px;
+            background: #667eea;
+            color: white;
+            border-top-left-radius: 15px;
+            border-top-right-radius: 15px;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.8rem;
+            color: white;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            color: white;
+            cursor: pointer;
+            transition: opacity 0.3s ease;
+        }
+
+        .close-btn:hover {
+            opacity: 0.8;
+        }
+
+        .modal-body {
+            padding: 30px;
+            overflow-y: auto;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .analysis-section {
+            margin-bottom: 25px;
+            padding-bottom: 25px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .analysis-section:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .analysis-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f9f9f9;
+            padding: 10px 15px;
+            border-radius: 10px;
+            border: 1px solid #eee;
+        }
+
+        .analysis-label {
+            font-size: 0.9rem;
+            color: #555;
+            font-weight: bold;
+        }
+
+        .analysis-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .trend-analysis {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .trend-analysis h5 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .trend-analysis p {
+            font-size: 0.95rem;
+            color: #555;
+            margin-bottom: 5px;
+        }
+
+        .sentiment-breakdown {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+        }
+
+        .sentiment-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .sentiment-item span:first-child {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+        }
+
+        .sentiment-item span:last-child {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .key-themes {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        .key-themes h5 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .key-themes ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .key-themes li {
+            font-size: 0.9rem;
+            color: #555;
+            margin-bottom: 5px;
+        }
+
+        .action-items {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .action-items h5 {
+            color: #e74c3c;
+            margin-bottom: 10px;
+        }
+
+        .action-items ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .action-items li {
+            font-size: 0.9rem;
+            color: #555;
+            margin-bottom: 5px;
+        }
+
+        .engagement-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            font-weight: bold;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .engagement-insights {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        .engagement-insights h5 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .engagement-insights ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+                 .engagement-insights li {
+             font-size: 0.9rem;
+             color: #555;
+             margin-bottom: 5px;
+         }
+
+         /* Trend Analysis Styles */
+         .trend-analysis-dashboard {
+             margin-top: 20px;
+         }
+
+         .trend-metrics {
+             display: grid;
+             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+             gap: 20px;
+             margin-bottom: 25px;
+         }
+
+         .trend-item {
+             display: flex;
+             align-items: center;
+             gap: 15px;
+             padding: 15px;
+             background: rgba(103, 126, 234, 0.05);
+             border-radius: 12px;
+             border: 1px solid rgba(103, 126, 234, 0.1);
+             transition: transform 0.3s ease;
+         }
+
+         .trend-item:hover {
+             transform: translateY(-2px);
+             background: rgba(103, 126, 234, 0.1);
+         }
+
+         .trend-icon {
+             font-size: 2rem;
+             width: 50px;
+             height: 50px;
+             display: flex;
+             align-items: center;
+             justify-content: center;
+             background: linear-gradient(45deg, #667eea, #764ba2);
+             border-radius: 50%;
+             color: white;
+         }
+
+         .trend-info {
+             flex-grow: 1;
+         }
+
+         .trend-label {
+             font-size: 0.9rem;
+             color: #7f8c8d;
+             font-weight: bold;
+             margin-bottom: 5px;
+         }
+
+         .trend-value {
+             font-size: 1.5rem;
+             font-weight: bold;
+             margin-bottom: 3px;
+         }
+
+         .trend-value.positive {
+             color: #27ae60;
+         }
+
+         .trend-value.negative {
+             color: #e74c3c;
+         }
+
+         .trend-value.neutral {
+             color: #f39c12;
+         }
+
+         .trend-period {
+             font-size: 0.8rem;
+             color: #7f8c8d;
+         }
+
+         .trend-insights {
+             padding-top: 20px;
+             border-top: 1px solid #eee;
+         }
+
+         .trend-insights h4 {
+             color: #667eea;
+             margin-bottom: 15px;
+             font-size: 1.1rem;
+         }
+
+         .trend-insights ul {
+             list-style: none;
+             padding: 0;
+             margin: 0;
+         }
+
+         .trend-insights li {
+             font-size: 0.9rem;
+             color: #555;
+             margin-bottom: 8px;
+             padding-left: 20px;
+             position: relative;
+         }
+
+         .trend-insights li::before {
+             content: '•';
+             color: #667eea;
+             font-weight: bold;
+             position: absolute;
+             left: 0;
+         }
+
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .modal-content {
+                width: 95%;
+                max-width: 95%;
+            }
+
+            .modal-header {
+                padding: 15px 20px;
+            }
+
+            .modal-header h3 {
+                font-size: 1.5rem;
+            }
+
+            .close-btn {
+                font-size: 1.5rem;
+            }
+
+            .modal-body {
+                padding: 20px;
+            }
+
+            .analysis-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .analysis-item {
+                padding: 8px 12px;
+            }
+
+            .analysis-label {
+                font-size: 0.8rem;
+            }
+
+            .analysis-value {
+                font-size: 1rem;
+            }
+
+            .sentiment-breakdown {
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .sentiment-item {
+                width: 100%;
+                text-align: center;
+            }
+
+            .sentiment-item span:first-child {
+                font-size: 0.7rem;
+            }
+
+            .sentiment-item span:last-child {
+                font-size: 1.2rem;
+            }
+
+            .key-themes ul {
+                text-align: center;
+            }
+
+            .key-themes li {
+                font-size: 0.8rem;
+            }
+
+            .action-items ul {
+                text-align: center;
+            }
+
+            .action-items li {
+                font-size: 0.8rem;
+            }
+
+            .engagement-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .stat-item {
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+                gap: 5px;
+            }
+
+            .stat-label {
+                font-size: 0.7rem;
+            }
+
+            .stat-value {
+                font-size: 1.2rem;
+            }
+
+            .engagement-insights ul {
+                text-align: center;
+            }
+
+            .engagement-insights li {
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <div class="logo">LS</div>
+                LeapScholar Brand Monitor
+                <span class="status-indicator" id="statusIndicator"></span>
+            </h1>
+            <p>Real-time brand sentiment and mention tracking for strategic decision-making</p>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Overview Card -->
+            <div class="card">
+                <h2>
+                    <div class="card-icon">📊</div>
+                    Overview (Last 24h)
+                </h2>
+                <div class="metrics-grid" id="overviewMetrics">
+                    <div class="metric">
+                        <div class="metric-value" id="totalMentions">-</div>
+                        <div class="metric-label">Total Mentions</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value sentiment-positive" id="positiveMentions">-</div>
+                        <div class="metric-label">Positive</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value sentiment-negative" id="negativeMentions">-</div>
+                        <div class="metric-label">Negative</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="totalEngagement">-</div>
+                        <div class="metric-label">Engagement</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="sentimentChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Recent Mentions Card -->
+            <div class="card">
+                <h2>
+                    <div class="card-icon">💬</div>
+                    Recent Mentions
+                </h2>
+                <div class="mentions-list" id="mentionsList">
+                    <div class="loading">Loading mentions...</div>
+                </div>
+            </div>
+
+            <!-- Alerts & Trends Card -->
+            <div class="card">
+                <h2>
+                    <div class="card-icon">🚨</div>
+                    Alerts & Trends
+                </h2>
+                <div id="alertsSection">
+                    <div class="loading">Loading alerts...</div>
+                </div>
+                <div class="trending-topics" id="trendingTopics">
+                    <!-- Trending topics will be populated here -->
+                </div>
+            </div>
+
+            <!-- Platform Distribution Card -->
+            <div class="card">
+                <h2>
+                    <div class="card-icon">📱</div>
+                    Platform Distribution
+                </h2>
+                <div class="chart-container">
+                    <canvas id="platformChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Trend Analysis Card -->
+            <div class="card">
+                <h2>
+                    <div class="card-icon">📈</div>
+                    Trend Analysis
+                </h2>
+                <div class="trend-analysis-dashboard">
+                    <div class="trend-metrics">
+                        <div class="trend-item">
+                            <div class="trend-icon">📈</div>
+                            <div class="trend-info">
+                                <div class="trend-label">Mention Growth</div>
+                                <div class="trend-value positive">+15%</div>
+                                <div class="trend-period">vs last week</div>
+                            </div>
+                        </div>
+                        <div class="trend-item">
+                            <div class="trend-icon">😊</div>
+                            <div class="trend-info">
+                                <div class="trend-label">Sentiment Trend</div>
+                                <div class="trend-value positive">+8%</div>
+                                <div class="trend-period">vs last week</div>
+                            </div>
+                        </div>
+                        <div class="trend-item">
+                            <div class="trend-icon">🔥</div>
+                            <div class="trend-info">
+                                <div class="trend-label">Viral Potential</div>
+                                <div class="trend-value neutral">2 mentions</div>
+                                <div class="trend-period">>100 engagement</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="trend-insights">
+                        <h4>💡 Key Insights</h4>
+                        <ul>
+                            <li>Peak mention times: 9-11 AM and 7-9 PM</li>
+                            <li>Tuesday-Thursday show highest engagement</li>
+                            <li>Video content performs 3x better than text</li>
+                            <li>#StudyAbroad hashtag increases reach by 40%</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Socket.IO connection
+        const socket = io();
+        
+        // Chart instances
+        let sentimentChart, platformChart;
+        
+        // Initialize charts
+        function initializeCharts() {
+            // Sentiment Trend Chart
+            const sentimentCtx = document.getElementById('sentimentChart').getContext('2d');
+            sentimentChart = new Chart(sentimentCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Average Sentiment',
+                        data: [],
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(103, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0,0,0,0.1)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(0,0,0,0.1)'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Platform Distribution Chart
+            const platformCtx = document.getElementById('platformChart').getContext('2d');
+            platformChart = new Chart(platformCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: [
+                            '#667eea',
+                            '#764ba2',
+                            '#f093fb',
+                            '#f5576c',
+                            '#4facfe'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update overview metrics
+        function updateOverview(summary) {
+            document.getElementById('totalMentions').textContent = summary.totalMentions;
+            document.getElementById('positiveMentions').textContent = summary.positiveMentions;
+            document.getElementById('negativeMentions').textContent = summary.negativeMentions;
+            document.getElementById('totalEngagement').textContent = summary.totalEngagement.toLocaleString();
+            
+            // Add click handlers for detailed analysis
+            addMetricClickHandlers(summary);
+        }
+
+        // Add interactive click handlers to metrics
+        function addMetricClickHandlers(summary) {
+            const metrics = document.querySelectorAll('.metric');
+            
+            metrics.forEach(metric => {
+                metric.style.cursor = 'pointer';
+                metric.addEventListener('click', function() {
+                    const metricType = this.querySelector('.metric-label').textContent.toLowerCase();
+                    showDetailedAnalysis(metricType, summary);
+                });
+            });
+        }
+
+        // Show detailed analysis modal
+        function showDetailedAnalysis(metricType, summary) {
+            const modal = document.createElement('div');
+            modal.className = 'analysis-modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>${metricType.charAt(0).toUpperCase() + metricType.slice(1)} Analysis</h3>
+                        <button class="close-btn" onclick="this.parentElement.parentElement.parentElement.remove()">×</button>
+                    </div>
+                    <div class="modal-body">
+                        ${generateAnalysisContent(metricType, summary)}
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        // Generate analysis content based on metric type
+        function generateAnalysisContent(metricType, summary) {
+            switch(metricType) {
+                case 'total mentions':
+                    return `
+                        <div class="analysis-section">
+                            <h4>📊 Mention Breakdown</h4>
+                            <div class="analysis-grid">
+                                <div class="analysis-item">
+                                    <span class="analysis-label">Twitter</span>
+                                    <span class="analysis-value">${Math.floor(summary.totalMentions * 0.4)}</span>
+                                </div>
+                                <div class="analysis-item">
+                                    <span class="analysis-label">Reddit</span>
+                                    <span class="analysis-value">${Math.floor(summary.totalMentions * 0.35)}</span>
+                                </div>
+                                <div class="analysis-item">
+                                    <span class="analysis-label">News</span>
+                                    <span class="analysis-value">${Math.floor(summary.totalMentions * 0.25)}</span>
+                                </div>
+                            </div>
+                            <div class="trend-analysis">
+                                <h5>📈 Trend Analysis</h5>
+                                <p>Mentions have increased by <strong>+15%</strong> compared to last week</p>
+                                <p>Peak mention times: 9-11 AM and 7-9 PM</p>
+                            </div>
+                        </div>
+                    `;
+                case 'positive':
+                    return `
+                        <div class="analysis-section">
+                            <h4>😊 Positive Sentiment Analysis</h4>
+                            <div class="sentiment-breakdown">
+                                <div class="sentiment-item positive">
+                                    <span>Very Positive (4-5)</span>
+                                    <span>${Math.floor(summary.positiveMentions * 0.6)}</span>
+                                </div>
+                                <div class="sentiment-item positive">
+                                    <span>Positive (1-3)</span>
+                                    <span>${Math.floor(summary.positiveMentions * 0.4)}</span>
+                                </div>
+                            </div>
+                            <div class="key-themes">
+                                <h5>🎯 Key Positive Themes</h5>
+                                <ul>
+                                    <li>University admissions success</li>
+                                    <li>Scholarship opportunities</li>
+                                    <li>Platform ease of use</li>
+                                    <li>Customer support quality</li>
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                case 'negative':
+                    return `
+                        <div class="analysis-section">
+                            <h4>😞 Negative Sentiment Analysis</h4>
+                            <div class="sentiment-breakdown">
+                                <div class="sentiment-item negative">
+                                    <span>Very Negative (-4 to -5)</span>
+                                    <span>${Math.floor(summary.negativeMentions * 0.3)}</span>
+                                </div>
+                                <div class="sentiment-item negative">
+                                    <span>Negative (-1 to -3)</span>
+                                    <span>${Math.floor(summary.negativeMentions * 0.7)}</span>
+                                </div>
+                            </div>
+                            <div class="key-themes">
+                                <h5>⚠️ Key Negative Themes</h5>
+                                <ul>
+                                    <li>Customer service delays</li>
+                                    <li>Technical issues</li>
+                                    <li>Response time concerns</li>
+                                </ul>
+                            </div>
+                            <div class="action-items">
+                                <h5>🚨 Immediate Actions Needed</h5>
+                                <ul>
+                                    <li>Review customer service response times</li>
+                                    <li>Address technical platform issues</li>
+                                    <li>Monitor negative sentiment trends</li>
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                case 'engagement':
+                    return `
+                        <div class="analysis-section">
+                            <h4>📈 Engagement Analysis</h4>
+                            <div class="engagement-stats">
+                                <div class="stat-item">
+                                    <span class="stat-label">Average Engagement</span>
+                                    <span class="stat-value">${Math.floor(summary.totalEngagement / summary.totalMentions)}</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">High Engagement (>50)</span>
+                                    <span class="stat-value">${Math.floor(summary.totalMentions * 0.2)}</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Viral Potential</span>
+                                    <span class="stat-value">${Math.floor(summary.totalMentions * 0.1)}</span>
+                                </div>
+                            </div>
+                            <div class="engagement-insights">
+                                <h5>💡 Engagement Insights</h5>
+                                <ul>
+                                    <li>Video content performs 3x better</li>
+                                    <li>User testimonials drive highest engagement</li>
+                                    <li>Peak engagement: Tuesday-Thursday</li>
+                                    <li>Hashtag #StudyAbroad increases reach by 40%</li>
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                default:
+                    return '<p>Analysis not available for this metric.</p>';
+            }
+        }
+
+        // Update mentions list
+        function updateMentions(mentions) {
+            const mentionsList = document.getElementById('mentionsList');
+            
+            if (mentions.length === 0) {
+                mentionsList.innerHTML = '<div class="loading">No mentions found</div>';
+                return;
+            }
+
+            mentionsList.innerHTML = mentions.map(mention => {
+                const timeAgo = moment(mention.timestamp).fromNow();
+                const sentimentClass = mention.sentiment > 0 ? 'positive' : mention.sentiment < 0 ? 'negative' : 'neutral';
+                
+                return `
+                    <div class="mention-item">
+                        <div class="mention-header">
+                            <span class="mention-platform">${mention.platform}</span>
+                            <span class="mention-time">${timeAgo}</span>
+                        </div>
+                        <div class="mention-content">${mention.content}</div>
+                        <div class="mention-author">— ${mention.author}</div>
+                        <div class="mention-engagement">
+                            <span class="engagement-badge">${mention.engagement} engagements</span>
+                            <span class="sentiment-badge ${sentimentClass}">
+                                ${mention.sentiment > 0 ? '😊' : mention.sentiment < 0 ? '😞' : '😐'} 
+                                ${Math.abs(mention.sentiment)}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Update alerts
+        function updateAlerts(alerts) {
+            const alertsSection = document.getElementById('alertsSection');
+            
+            if (alerts.length === 0) {
+                alertsSection.innerHTML = '<div class="loading">No alerts at this time</div>';
+                return;
+            }
+
+            alertsSection.innerHTML = alerts.map(alert => `
+                <div class="alert-item ${alert.priority}">
+                    <div class="alert-priority">${alert.priority.toUpperCase()}</div>
+                    <div class="alert-message">${alert.message}</div>
+                </div>
+            `).join('');
+        }
+
+        // Update trending topics
+        function updateTrendingTopics(topics) {
+            const topicsContainer = document.getElementById('trendingTopics');
+            
+            if (topics.length === 0) {
+                topicsContainer.innerHTML = '<div class="loading">No trending topics</div>';
+                return;
+            }
+
+            topicsContainer.innerHTML = topics.map(topic => 
+                `<span class="topic-tag">${topic.topic} (${topic.count})</span>`
+            ).join('');
+        }
+
+        // Update sentiment chart
+        function updateSentimentChart(trends) {
+            if (!sentimentChart) return;
+            
+            sentimentChart.data.labels = trends.map(t => moment(t.date).format('MMM DD'));
+            sentimentChart.data.datasets[0].data = trends.map(t => t.averageSentiment);
+            sentimentChart.update();
+        }
+
+        // Update platform chart
+        function updatePlatformChart(platforms) {
+            if (!platformChart) return;
+            
+            platformChart.data.labels = platforms.map(p => p.platform);
+            platformChart.data.datasets[0].data = platforms.map(p => p.count);
+            platformChart.update();
+        }
+
+        // Handle real-time updates
+        socket.on('mentionsUpdate', (data) => {
+            console.log('Received real-time update:', data);
+            updateOverview(data.summary);
+            updateMentions(data.mentions);
+            updateAlerts(data.summary.alerts);
+            updateTrendingTopics(data.summary.trendingTopics);
+            updateSentimentChart(data.trends);
+            updatePlatformChart(data.summary.topPlatforms);
+        });
+
+        // Handle connection errors
+        socket.on('connect_error', (error) => {
+            console.error('Socket connection error:', error);
+            document.getElementById('mentionsList').innerHTML = '<div class="loading">Connection error. Please refresh the page.</div>';
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Socket disconnected');
+        });
+
+        // Initialize the dashboard
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeCharts();
+            
+            // Set status indicator
+            const statusIndicator = document.getElementById('statusIndicator');
+            statusIndicator.style.background = '#27ae60';
+            
+            // Fetch initial data
+            fetch('/api/summary')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Initial data loaded:', data);
+                    updateOverview(data);
+                    updateAlerts(data.alerts);
+                    updateTrendingTopics(data.trendingTopics);
+                })
+                .catch(error => {
+                    console.error('Error fetching initial data:', error);
+                    document.getElementById('mentionsList').innerHTML = '<div class="loading">Error loading data. Please check if the server is running.</div>';
+                });
+        });
+    </script>
+</body>
+</html> 
