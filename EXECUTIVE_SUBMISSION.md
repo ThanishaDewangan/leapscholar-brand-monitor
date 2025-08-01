@@ -7,9 +7,6 @@
 ### Executive Summary
 Built a real-time brand monitoring dashboard that transforms the Marketing Head's daily routine from hours of manual social media searching into a **5-minute strategic review**. The solution provides instant sentiment analysis, automated alerts for crisis management, and trending topic identification across Twitter, Reddit, and News platforms. Designed specifically for executive decision-making with actionable insights and strategic recommendations.
 
-### Brief Demonstration
-**Access**: `http://localhost:3000`
-
 **What You'll See**:
 - **Executive Overview**: 4 key metrics (Total Mentions: 4, Positive: 3, Negative: 0, Engagement: 236)
 - **Interactive Dashboard**: Click any metric for detailed analysis
@@ -165,8 +162,6 @@ leapscholar-brand-monitor/
 
 **The Marketing Head can now make data-driven strategic decisions in minutes instead of hours, with comprehensive brand intelligence at her fingertips. The solution transforms manual social media monitoring into strategic, data-driven brand management with actionable insights for executive decision-making.**
 
-**Access**: `http://localhost:3000` | **Status**: Live and fully functional
-
 ---
-
-*This solution represents a new standard for brand monitoring tools that prioritize executive decision-making over operational complexity, transforming manual social media monitoring into strategic, data-driven brand management.* 
+## Vedio link : https://drive.google.com/file/d/1o-ICDsgwYc7q4rIDBiwCCvtxyRjccxX_/view?usp=sharing
+## Github link : https://github.com/ThanishaDewangan/leapscholar-brand-monitor
